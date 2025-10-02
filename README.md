@@ -11,6 +11,13 @@ No heavy transformer models, no GPU requirements — **just fast, offline summar
 
 ---
 
+## 📸 Preview  
+
+![App Screenshot](https://github.com/mrGupta04/certificate/blob/main/Text_sum.png?raw=true)
+
+
+---
+
 ## ✨ Features  
 
 🔹 **Flexible Summarization**  
@@ -87,11 +94,7 @@ streamlit run app.py
 
 ---
 
-## 📸 Preview  
 
-*(Add screenshots or GIFs of your app here for a professional showcase!)*  
-
----
 
 ## 👨‍💻 Author  
 
@@ -100,5 +103,3 @@ streamlit run app.py
 
 ---
 
-
-This project is licensed under the **MIT License**.  
