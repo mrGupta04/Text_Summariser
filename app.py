@@ -11,7 +11,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import docx
 from PyPDF2 import PdfReader
 import requests
-from bs4 import BeautifulSoup
 
 # -------------------- NLTK SETUP --------------------
 @st.cache_resource
@@ -35,15 +34,6 @@ def read_uploaded_file(uploaded_file):
         return " ".join([para.text for para in doc.paragraphs])
     else:
         return str(uploaded_file.read(), "utf-8")
-
-def fetch_text_from_url(url):
-    try:
-        r = requests.get(url)
-        soup = BeautifulSoup(r.content, "html.parser")
-        paragraphs = soup.find_all("p")
-        return " ".join([p.get_text() for p in paragraphs])
-    except:
-        return ""
 
 def textrank_summarizer(text, num_sentences=3):
     text = re.sub(r'\s+', ' ', text).strip()
@@ -137,13 +127,10 @@ body {{
 # -------------------- Inputs --------------------
 uploaded_file = st.file_uploader("Upload a file (PDF, DOCX, TXT):", type=["pdf", "docx", "txt"])
 text_input = st.text_area("Or paste text here:", height=200)
-url_input = st.text_input("Or provide a webpage URL:")
 
 text = ""
 if uploaded_file:
     text = read_uploaded_file(uploaded_file)
-elif url_input:
-    text = fetch_text_from_url(url_input)
 elif text_input:
     text = text_input
 
