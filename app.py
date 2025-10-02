@@ -101,7 +101,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-st.title("📝 Advanced Text Summarizer (Lightweight)")
+st.title("📝Text Summarizer")
 
 # Sidebar options
 st.sidebar.header("Options")
