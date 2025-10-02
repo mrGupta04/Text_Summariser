@@ -1,8 +1,14 @@
-# Advanced Lightweight Text Summarizer 📝
+# Text Summarizer 📝
 
 A modern, feature-rich, and fully **lightweight text summarization web app** built using **Streamlit**, **NLTK**, **NetworkX**, and **scikit-learn**.  
 No heavy transformer models or PyTorch required — works offline and fast!  
 
+---
+
+## Live Demo 
+
+Try the app online here: [Live Demo](https://mrgupta04-text-summariser-app-cuuyiz.streamlit.app/)
+  
 ---
 
 ## Features
@@ -34,15 +40,6 @@ No heavy transformer models or PyTorch required — works offline and fast!
   - Runs entirely on CPU.
   - No PyTorch, TensorFlow, or transformer models required.
 
----
-
-## Live Demo
-
-Try the app online here: **[Live Demo](https://share.streamlit.io/mrGupta04/Text_Summariser/main/app.py)**  
-
-> Note: Replace the URL with your actual deployed Streamlit Cloud link once hosted.
-
----
 
 ## Installation
 
@@ -84,18 +81,6 @@ streamlit run app.py
 
 ---
 
-## Screenshots
-
-*(Add your screenshots here for better presentation)*
-
----
-
-## License
-
-This project is open-source and free to use.  
-Feel free to modify and share under the [MIT License](https://opensource.org/licenses/MIT).
-
----
 
 ## Author
 
