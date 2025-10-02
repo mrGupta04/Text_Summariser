@@ -12,7 +12,7 @@ import docx
 from PyPDF2 import PdfReader
 import requests
 from bs4 import BeautifulSoup
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 # -------------------- NLTK SETUP --------------------
 @st.cache_resource
@@ -192,9 +192,11 @@ if st.session_state.translate_clicked:
     translate_lang = st.selectbox("Select Language:", list(languages.keys()), index=0)
     if st.button("Translate"):
         if translate_lang != "English":
-            translator = Translator()
-            translated = translator.translate(st.session_state.summary_text, dest=languages[translate_lang]).text
-            st.markdown(f'<div class="summary-box">{translated}</div>', unsafe_allow_html=True)
-            st.download_button("Download Translated Summary", translated, file_name="summary_translated.txt")
+            try:
+                translated = GoogleTranslator(source='auto', target=languages[translate_lang]).translate(st.session_state.summary_text)
+                st.markdown(f'<div class="summary-box">{translated}</div>', unsafe_allow_html=True)
+                st.download_button("Download Translated Summary", translated, file_name="summary_translated.txt")
+            except Exception as e:
+                st.error(f"Translation failed: {e}")
         else:
             st.info("Selected language is English. No translation needed.")
