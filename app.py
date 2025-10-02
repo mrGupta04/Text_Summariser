@@ -10,7 +10,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import docx
 from PyPDF2 import PdfReader
-import requests
+from deep_translator import GoogleTranslator
 
 # -------------------- NLTK SETUP --------------------
 @st.cache_resource
@@ -67,6 +67,12 @@ def extract_keywords(text, top_n=10):
     top_words = sorted(freq.items(), key=lambda x: x[1], reverse=True)[:top_n]
     return [w for w, _ in top_words]
 
+def translate_text(text, target_lang="en"):
+    try:
+        return GoogleTranslator(source='auto', target=target_lang).translate(text)
+    except Exception as e:
+        return f"Translation Error: {str(e)}"
+
 # -------------------- STREAMLIT APP --------------------
 st.title("📝 Advanced Text Summarizer")
 
@@ -76,6 +82,19 @@ summary_length = st.sidebar.slider("Summary Length (sentences)", 1, 10, 3)
 show_keywords = st.sidebar.checkbox("Show Keywords", value=True)
 theme = st.sidebar.selectbox("Theme", ["Dark", "Light"], index=0)
 top_n_keywords = st.sidebar.slider("Number of Keywords", 5, 20, 10)
+
+# Translation options
+st.sidebar.header("Translation")
+enable_translation = st.sidebar.checkbox("Enable Translation")
+languages = {
+    "English": "en",
+    "Spanish": "es",
+    "French": "fr",
+    "German": "de",
+    "Hindi": "hi",
+    "Chinese (Simplified)": "zh-CN"
+}
+target_lang = st.sidebar.selectbox("Target Language", list(languages.keys()))
 
 # Colors based on theme
 bg_color = "#0E1117" if theme == "Dark" else "#f9f9f9"
@@ -139,6 +158,7 @@ if st.button("Generate Summary"):
     if text and len(text.strip()) > 50:
         with st.spinner("Generating summary..."):
             summary = textrank_summarizer(text, num_sentences=summary_length)
+
             st.markdown("### Summary")
             st.markdown(f'<div class="summary-box">{summary}</div>', unsafe_allow_html=True)
 
@@ -147,6 +167,12 @@ if st.button("Generate Summary"):
                 if keywords:
                     st.markdown("### Keywords")
                     st.markdown(f'<div class="summary-box">{", ".join(keywords)}</div>', unsafe_allow_html=True)
+
+            # Translation
+            if enable_translation:
+                translated = translate_text(summary, languages[target_lang])
+                st.markdown(f"### Translated Summary ({target_lang})")
+                st.markdown(f'<div class="summary-box">{translated}</div>', unsafe_allow_html=True)
 
             st.download_button("Download Summary", summary, file_name="summary.txt")
     else:
