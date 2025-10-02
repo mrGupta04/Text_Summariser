@@ -1,220 +1,84 @@
 import streamlit as st
 st.set_page_config(page_title="Advanced Text Summarizer", page_icon="📝", layout="wide")
 
-# Import with error handling
-try:
-    import nltk
-    from nltk.corpus import stopwords
-    from nltk.tokenize import sent_tokenize, word_tokenize
-    NLTK_AVAILABLE = True
-except ImportError:
-    NLTK_AVAILABLE = False
-    st.error("NLTK is not available. Please check the requirements.")
-
-try:
-    import networkx as nx
-    NETWORKX_AVAILABLE = True
-except ImportError:
-    NETWORKX_AVAILABLE = False
-    st.error("NetworkX is not available. Please check the requirements.")
-
-try:
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics.pairwise import cosine_similarity
-    SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
-    st.error("Scikit-learn is not available. Please check the requirements.")
-
-try:
-    import docx
-    DOCX_AVAILABLE = True
-except ImportError:
-    DOCX_AVAILABLE = False
-    st.error("Python-docx is not available. Please check the requirements.")
-
-try:
-    from PyPDF2 import PdfReader
-    PYPDF2_AVAILABLE = True
-except ImportError:
-    PYPDF2_AVAILABLE = False
-    st.error("PyPDF2 is not available. Please check the requirements.")
-
-try:
-    import requests
-    from bs4 import BeautifulSoup
-    REQUESTS_AVAILABLE = True
-except ImportError:
-    REQUESTS_AVAILABLE = False
-    st.error("Requests or BeautifulSoup is not available. Please check the requirements.")
-
-try:
-    from deep_translator import GoogleTranslator
-    TRANSLATOR_AVAILABLE = True
-except ImportError:
-    TRANSLATOR_AVAILABLE = False
-    st.warning("Translation features disabled. Install deep-translator for translation support.")
-
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import sent_tokenize, word_tokenize
 import re
+import networkx as nx
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import docx
+from PyPDF2 import PdfReader
+import requests
+from bs4 import BeautifulSoup
 
 # -------------------- NLTK SETUP --------------------
 @st.cache_resource
 def download_nltk_resources():
-    if not NLTK_AVAILABLE:
-        return False
-    try:
-        nltk.download('punkt', quiet=True)
-        nltk.download('stopwords', quiet=True)
-        return True
-    except Exception as e:
-        st.error(f"Error downloading NLTK resources: {e}")
-        return False
-
-# Initialize NLTK if available
-if NLTK_AVAILABLE:
-    nltk_ready = download_nltk_resources()
-else:
-    nltk_ready = False
+    nltk.download('punkt')
+    nltk.download('stopwords')
+download_nltk_resources()
 
 # -------------------- FUNCTIONS --------------------
 def read_uploaded_file(uploaded_file):
-    if not PYPDF2_AVAILABLE and not DOCX_AVAILABLE:
-        st.error("File reading libraries not available")
-        return ""
-        
-    try:
-        if uploaded_file.type == "application/pdf" and PYPDF2_AVAILABLE:
-            reader = PdfReader(uploaded_file)
-            text = ""
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + " "
-            return text.strip()
-            
-        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" and DOCX_AVAILABLE:
-            doc = docx.Document(uploaded_file)
-            return " ".join([para.text for para in doc.paragraphs if para.text.strip()])
-        else:
-            # Handle text files
-            return str(uploaded_file.read(), "utf-8", errors='ignore')
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-        return ""
+    if uploaded_file.type == "application/pdf":
+        reader = PdfReader(uploaded_file)
+        text = ""
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + " "
+        return text
+    elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        doc = docx.Document(uploaded_file)
+        return " ".join([para.text for para in doc.paragraphs])
+    else:
+        return str(uploaded_file.read(), "utf-8")
 
 def fetch_text_from_url(url):
-    if not REQUESTS_AVAILABLE:
-        st.error("URL fetching not available")
-        return ""
-        
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        r = requests.get(url, headers=headers, timeout=10)
-        r.raise_for_status()
+        r = requests.get(url)
         soup = BeautifulSoup(r.content, "html.parser")
-        
-        # Remove script and style elements
-        for script in soup(["script", "style"]):
-            script.decompose()
-            
         paragraphs = soup.find_all("p")
-        text = " ".join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
-        return re.sub(r'\s+', ' ', text).strip()
-    except Exception as e:
-        st.error(f"Error fetching URL: {e}")
+        return " ".join([p.get_text() for p in paragraphs])
+    except:
         return ""
 
 def textrank_summarizer(text, num_sentences=3):
-    if not all([NLTK_AVAILABLE, NETWORKX_AVAILABLE, SKLEARN_AVAILABLE]):
-        return "Required libraries not available for summarization."
-        
-    try:
-        text = re.sub(r'\s+', ' ', text).strip()
-        if not text:
-            return "No text available for summarization."
-            
-        sentences = sent_tokenize(text)
-        if len(sentences) <= num_sentences:
-            return text
+    text = re.sub(r'\s+', ' ', text).strip()
+    sentences = sent_tokenize(text)
+    if len(sentences) <= num_sentences:
+        return text
 
-        if len(sentences) <= 1:
-            return "Not enough meaningful content to summarize."
+    stop_words = set(stopwords.words('english'))
+    clean_sentences = [
+        " ".join([w.lower() for w in word_tokenize(s) if w.isalpha() and w.lower() not in stop_words])
+        for s in sentences
+    ]
 
-        stop_words = set(stopwords.words('english'))
-        clean_sentences = []
-        
-        for s in sentences:
-            words = [w.lower() for w in word_tokenize(s) if w.isalpha() and w.lower() not in stop_words]
-            if len(words) > 2:
-                clean_sentences.append(" ".join(words))
-        
-        if not clean_sentences:
-            return " ".join(sentences[:num_sentences])
-            
-        if len(clean_sentences) <= 1:
-            return " ".join(sentences[:num_sentences])
+    vectorizer = TfidfVectorizer()
+    X = vectorizer.fit_transform(clean_sentences)
+    sim_matrix = cosine_similarity(X, X)
 
-        vectorizer = TfidfVectorizer()
-        X = vectorizer.fit_transform(clean_sentences)
-        
-        if X.shape[0] <= 1:
-            return " ".join(sentences[:num_sentences])
-            
-        sim_matrix = cosine_similarity(X, X)
+    nx_graph = nx.from_numpy_array(sim_matrix)
+    scores = nx.pagerank(nx_graph)
 
-        nx_graph = nx.from_numpy_array(sim_matrix)
-        scores = nx.pagerank(nx_graph)
+    ranked_sentences = sorted(((scores[i], s, i) for i, s in enumerate(sentences)), reverse=True)
+    top_sentences = sorted(ranked_sentences[:num_sentences], key=lambda x: x[2])
 
-        ranked_sentences = sorted(((scores[i], s, i) for i, s in enumerate(sentences) if i < len(clean_sentences)), reverse=True)
-        
-        actual_num = min(num_sentences, len(ranked_sentences))
-        top_sentences = sorted(ranked_sentences[:actual_num], key=lambda x: x[2])
-
-        return " ".join([s for _, s, _ in top_sentences]).strip()
-        
-    except Exception as e:
-        return f"Error in summarization: {str(e)}"
+    return " ".join([s for _, s, _ in top_sentences])
 
 def extract_keywords(text, top_n=10):
-    if not NLTK_AVAILABLE:
-        return []
-        
-    try:
-        if not text.strip():
-            return []
-            
-        words = [w for w in word_tokenize(text.lower()) 
-                if w.isalpha() and len(w) > 2 and w not in stopwords.words('english')]
-        
-        if not words:
-            return []
-            
-        freq = {}
-        for w in words:
-            freq[w] = freq.get(w, 0) + 1
-            
-        top_words = sorted(freq.items(), key=lambda x: x[1], reverse=True)[:top_n]
-        return [w for w, _ in top_words if w.strip()]
-    except Exception as e:
-        st.error(f"Error extracting keywords: {e}")
-        return []
+    words = [w for w in word_tokenize(text.lower()) if w.isalpha() and w not in stopwords.words('english')]
+    freq = {}
+    for w in words:
+        freq[w] = freq.get(w, 0) + 1
+    top_words = sorted(freq.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    return [w for w, _ in top_words]
 
 # -------------------- STREAMLIT APP --------------------
 st.title("📝 Advanced Text Summarizer")
-
-# Check if all required libraries are available
-if not all([NLTK_AVAILABLE, NETWORKX_AVAILABLE, SKLEARN_AVAILABLE]):
-    st.warning("⚠️ Some required libraries are not available. Basic functionality may be limited.")
-
-# -------------------- Session State --------------------
-if "translate_clicked" not in st.session_state:
-    st.session_state.translate_clicked = False
-if "summary_text" not in st.session_state:
-    st.session_state.summary_text = ""
-if "keywords" not in st.session_state:
-    st.session_state.keywords = []
 
 # -------------------- Sidebar --------------------
 st.sidebar.header("Options")
@@ -255,7 +119,6 @@ body {{
     border-left:5px solid #4CAF50; 
     margin-top:1rem;
     font-size:1.05rem;
-    line-height:1.6;
 }}
 .download-btn button {{
     background-color:#FF5722;
@@ -268,147 +131,36 @@ body {{
 .download-btn button:hover {{
     background-color:#E64A19;
 }}
-.info-box {{
-    background-color:{card_bg};
-    padding:1rem;
-    border-radius:8px;
-    margin:1rem 0;
-    border-left:4px solid #2196F3;
-}}
-.warning-box {{
-    background-color:#fff3cd;
-    color:#856404;
-    padding:1rem;
-    border-radius:8px;
-    margin:1rem 0;
-    border-left:4px solid #ffc107;
-}}
 </style>
 """, unsafe_allow_html=True)
 
 # -------------------- Inputs --------------------
-input_method = st.radio("Choose input method:", ["Text", "File Upload", "URL"], horizontal=True)
+uploaded_file = st.file_uploader("Upload a file (PDF, DOCX, TXT):", type=["pdf", "docx", "txt"])
+text_input = st.text_area("Or paste text here:", height=200)
+url_input = st.text_input("Or provide a webpage URL:")
 
 text = ""
-if input_method == "File Upload":
-    uploaded_file = st.file_uploader("Upload a file (PDF, DOCX, TXT):", type=["pdf", "docx", "txt"])
-    if uploaded_file:
-        text = read_uploaded_file(uploaded_file)
-        if text:
-            st.info(f"✅ File uploaded successfully! Text length: {len(text)} characters")
-
-elif input_method == "URL":
-    url_input = st.text_input("Enter webpage URL:")
-    if url_input:
-        if url_input.startswith(('http://', 'https://')):
-            with st.spinner("Fetching content from URL..."):
-                text = fetch_text_from_url(url_input)
-            if text:
-                st.info(f"✅ URL content fetched! Text length: {len(text)} characters")
-            else:
-                st.error("❌ Could not fetch content from URL. Please check the URL and try again.")
-        else:
-            st.warning("Please enter a valid URL starting with http:// or https://")
-
-else:  # Text input
-    text_input = st.text_area("Paste your text here:", height=200, 
-                             placeholder="Enter your text here... (minimum 100 characters recommended)")
+if uploaded_file:
+    text = read_uploaded_file(uploaded_file)
+elif url_input:
+    text = fetch_text_from_url(url_input)
+elif text_input:
     text = text_input
 
-# Display text stats if text is available
-if text and len(text.strip()) > 0:
-    try:
-        if NLTK_AVAILABLE:
-            sentences = sent_tokenize(text)
-            st.markdown(f'<div class="info-box">📊 Text Statistics: {len(text)} characters, {len(text.split())} words, {len(sentences)} sentences</div>', 
-                        unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="info-box">📊 Text Statistics: {len(text)} characters, {len(text.split())} words</div>', 
-                        unsafe_allow_html=True)
-    except:
-        st.markdown(f'<div class="info-box">📊 Text Statistics: {len(text)} characters, {len(text.split())} words</div>', 
-                    unsafe_allow_html=True)
-
-languages = {
-    "English": "en",
-    "Hindi": "hi",
-    "Spanish": "es",
-    "French": "fr",
-    "German": "de",
-    "Chinese (Simplified)": "zh-cn",
-    "Japanese": "ja",
-    "Russian": "ru",
-    "Arabic": "ar"
-}
-
 # -------------------- Generate Summary --------------------
-if st.button("Generate Summary", type="primary"):
+if st.button("Generate Summary"):
     if text and len(text.strip()) > 50:
-        if not all([NLTK_AVAILABLE, NETWORKX_AVAILABLE, SKLEARN_AVAILABLE]):
-            st.error("❌ Cannot generate summary. Required libraries are not available.")
-        else:
-            with st.spinner("🔍 Analyzing text and generating summary..."):
-                summary = textrank_summarizer(text, num_sentences=summary_length)
-                st.session_state.summary_text = summary
+        with st.spinner("Generating summary..."):
+            summary = textrank_summarizer(text, num_sentences=summary_length)
+            st.markdown("### Summary")
+            st.markdown(f'<div class="summary-box">{summary}</div>', unsafe_allow_html=True)
 
-                st.markdown("### 📄 Summary")
-                st.markdown(f'<div class="summary-box">{summary}</div>', unsafe_allow_html=True)
+            if show_keywords:
+                keywords = extract_keywords(text, top_n=top_n_keywords)
+                if keywords:
+                    st.markdown("### Keywords")
+                    st.markdown(f'<div class="summary-box">{", ".join(keywords)}</div>', unsafe_allow_html=True)
 
-                # Download original summary
-                st.download_button(
-                    label="📥 Download Summary",
-                    data=summary,
-                    file_name="summary.txt",
-                    mime="text/plain"
-                )
-
-                if show_keywords and NLTK_AVAILABLE:
-                    keywords = extract_keywords(text, top_n=top_n_keywords)
-                    st.session_state.keywords = keywords
-                    if keywords:
-                        st.markdown("### 🔑 Keywords")
-                        st.markdown(f'<div class="summary-box">{", ".join(keywords)}</div>', unsafe_allow_html=True)
-
-                st.session_state.translate_clicked = True
+            st.download_button("Download Summary", summary, file_name="summary.txt")
     else:
-        st.warning("⚠️ Please provide sufficient text (minimum 50 characters).")
-
-# -------------------- Translate --------------------
-if st.session_state.translate_clicked and st.session_state.summary_text:
-    st.markdown("---")
-    st.markdown("### 🌐 Translate Summary")
-    translate_lang = st.selectbox("Select target language:", list(languages.keys()), index=0)
-    
-    if st.button("Translate Summary"):
-        if not TRANSLATOR_AVAILABLE:
-            st.error("❌ Translation not available. deep-translator library is not installed.")
-        elif translate_lang != "English":
-            try:
-                with st.spinner(f"Translating to {translate_lang}..."):
-                    translated = GoogleTranslator(
-                        source='auto', 
-                        target=languages[translate_lang]
-                    ).translate(st.session_state.summary_text)
-                    
-                st.markdown(f"### 📄 Translated Summary ({translate_lang})")
-                st.markdown(f'<div class="summary-box">{translated}</div>', unsafe_allow_html=True)
-                
-                st.download_button(
-                    "📥 Download Translated Summary", 
-                    translated, 
-                    file_name=f"summary_{translate_lang.lower()}.txt",
-                    key="download_translated"
-                )
-            except Exception as e:
-                st.error(f"❌ Translation failed: {e}")
-        else:
-            st.info("ℹ️ Selected language is English. No translation needed.")
-
-# -------------------- Footer --------------------
-st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: #666;'>"
-    "Advanced Text Summarizer • Built with Streamlit • TextRank Algorithm"
-    "</div>",
-    unsafe_allow_html=True
-)
+        st.warning("Please provide text or upload a file (minimum 50 characters).")
