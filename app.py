@@ -20,10 +20,13 @@ def download_nltk_resources():
     try:
         nltk.download('punkt', quiet=True)
         nltk.download('stopwords', quiet=True)
+        return True
     except Exception as e:
         st.error(f"Error downloading NLTK resources: {e}")
+        return False
 
-download_nltk_resources()
+# Initialize NLTK
+nltk_ready = download_nltk_resources()
 
 # -------------------- FUNCTIONS --------------------
 def read_uploaded_file(uploaded_file):
@@ -36,6 +39,7 @@ def read_uploaded_file(uploaded_file):
                 if page_text:
                     text += page_text + " "
             return text.strip()
+            
         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
             doc = docx.Document(uploaded_file)
             return " ".join([para.text for para in doc.paragraphs if para.text.strip()])
@@ -243,8 +247,13 @@ else:  # Text input
 
 # Display text stats if text is available
 if text and len(text.strip()) > 0:
-    st.markdown(f'<div class="info-box">📊 Text Statistics: {len(text)} characters, {len(text.split())} words, {len(sent_tokenize(text))} sentences</div>', 
-                unsafe_allow_html=True)
+    try:
+        sentences = sent_tokenize(text)
+        st.markdown(f'<div class="info-box">📊 Text Statistics: {len(text)} characters, {len(text.split())} words, {len(sentences)} sentences</div>', 
+                    unsafe_allow_html=True)
+    except:
+        st.markdown(f'<div class="info-box">📊 Text Statistics: {len(text)} characters, {len(text.split())} words</div>', 
+                    unsafe_allow_html=True)
 
 languages = {
     "English": "en",
@@ -315,3 +324,12 @@ if st.session_state.translate_clicked and st.session_state.summary_text:
                 st.error(f"❌ Translation failed: {e}")
         else:
             st.info("ℹ️ Selected language is English. No translation needed.")
+
+# -------------------- Footer --------------------
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: #666;'>"
+    "Advanced Text Summarizer • Built with Streamlit • TextRank Algorithm"
+    "</div>",
+    unsafe_allow_html=True
+)
